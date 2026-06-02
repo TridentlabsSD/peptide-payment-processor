@@ -606,9 +606,9 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 /* Two-option pricing grid */
 .pricing-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 24px;
-  max-width: 980px;
+  max-width: 460px;
   margin: 0 auto;
 }
 .pricing-option {
@@ -2692,6 +2692,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
         <a href="#pricing" class="nav-link">Pricing</a>
         <a href="#how" class="nav-link">How it works</a>
         <a href="#faq" class="nav-link">FAQ</a>
+        <a href="https://use3psolutions.com/app" class="nav-link" target="_blank" rel="noopener">CRM</a>
       </div>
       <a href="https://t.me/use3psolutions" class="nav-cta">Contact Us →</a>
       <button class="nav-burger" aria-label="Open menu" aria-expanded="false">
@@ -2733,6 +2734,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
       <a href="#pricing" class="drawer-link">Pricing</a>
       <a href="#how" class="drawer-link">How it works</a>
       <a href="#faq" class="drawer-link">FAQ</a>
+      <a href="https://use3psolutions.com/app" class="drawer-link" target="_blank" rel="noopener">CRM</a>
     </nav>
     <div class="drawer-footer">
       <a href="https://t.me/use3psolutions" class="btn-primary drawer-cta">
@@ -2803,7 +2805,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 </section>
 
 <!-- ============== APPROVAL FLOW ============== -->
-<section class="approval">
+<section class="approval" id="how">
   <div class="approval-inner">
     <div class="approval-header">
       <div class="section-eyebrow">
@@ -2812,7 +2814,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
         </span>
       </div>
       <h2 class="approval-headline">From &ldquo;hello&rdquo; to processing<br>in under <span class="grad">24 hours</span>.</h2>
-      <p class="approval-sub">No legal team. No 47-page application&nbsp;— just a Telegram conversation and the right documents.</p>
+      <p class="approval-sub">No legal team. No 47-page application&nbsp;— just a quick form and a conversation with your assigned agent.</p>
     </div>
 
     <div class="approval-flow">
@@ -2823,8 +2825,20 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
         </div>
         <div class="approval-step-content">
           <div class="approval-step-time">~5 min</div>
-          <h3>Message us on Telegram</h3>
-          <p>Tell us your monthly volume, what you're selling, and your current processor situation. We'll let you know within 10 minutes if you're a fit.</p>
+          <h3>Fill out application</h3>
+          <p>Basic information about your business and how we can help. No 47-page forms — just the essentials so we can point you to the right solution.</p>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="approval-step">
+        <div class="approval-step-num">
+          <span>2</span>
+        </div>
+        <div class="approval-step-content">
+          <div class="approval-step-time">~20 min</div>
+          <h3>Connect with your assigned agent</h3>
+          <p>You're connected with a private, dedicated agent who assesses your situation in a bit more depth — so the right setup is ready before you go live.</p>
           <div class="approval-chat">
             <div class="approval-chat-msg approval-chat-them">
               <div class="approval-chat-avatar">M</div>
@@ -2836,23 +2850,11 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
             <div class="approval-chat-msg approval-chat-us">
               <div class="approval-chat-bubble approval-chat-bubble-us">
                 <strong>3P</strong>
-                Solid. We can take that volume. Send us your site, last 3 months of statements, and an ID. We'll have an answer in 20 min.
+                Solid. We can take that volume. Let's hop on a quick call so your agent can walk you through onboarding.
               </div>
               <div class="approval-chat-avatar approval-chat-avatar-us">3P</div>
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- STEP 2 -->
-      <div class="approval-step">
-        <div class="approval-step-num">
-          <span>2</span>
-        </div>
-        <div class="approval-step-content">
-          <div class="approval-step-time">~20 min</div>
-          <h3>Send a few documents</h3>
-          <p>That's it. No business plan, no projections, no notarized affidavits. We underwrite based on what actually matters — and tell you what to send in one message.</p>
         </div>
       </div>
 
@@ -2863,8 +2865,8 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
         </div>
         <div class="approval-step-content">
           <div class="approval-step-time">Same day → Next day</div>
-          <h3>Get approved & integrated</h3>
-          <p>We send your MID, integration credentials, and a 10-minute walkthrough. Live transactions usually flow within 24 hours of first contact.</p>
+          <h3>Get approved</h3>
+          <p>We have solutions for WooCommerce and custom code — both take less than 24 hours to get you onboarded and accepting PayPal.</p>
           <div class="approval-result">
             <div class="approval-result-card">
               <div class="approval-result-check">
@@ -3135,9 +3137,9 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 <section class="section" id="pricing">
   <div class="section-inner">
     <div class="section-header">
-      <div class="section-eyebrow">One rate, two options</div>
+      <div class="section-eyebrow">One simple rate</div>
       <h2>The most transparent price in high-risk.</h2>
-      <p class="section-sub">Flat 11% per transaction across both processing rails. Pick the one that fits your cashflow. No setup fees. No surprises.</p>
+      <p class="section-sub">Flat 11% per transaction. No setup fees, no monthly fees, no surprises — just transparent PayPal processing.</p>
     </div>
 
     <div class="pricing-grid">
@@ -3185,54 +3187,10 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
         </div>
       </div>
 
-      <!-- Card Option -->
-      <div class="pricing-option pricing-option-featured">
-        <div class="pricing-option-badge">Highest approval rate</div>
-        <div class="pricing-option-header">
-          <div class="pricing-option-tag">Card rail</div>
-          <div class="pricing-option-rate">
-            <span class="pricing-num">11</span>
-            <span class="pricing-pct">%</span>
-          </div>
-          <div class="pricing-option-headline">Per transaction</div>
-          <div class="pricing-option-sub">All major cards, multi-rail routing</div>
-        </div>
-        <div class="pricing-option-reserve">
-          <div class="pricing-option-reserve-label">Rolling reserve</div>
-          <div class="pricing-option-reserve-value">10%</div>
-          <div class="pricing-option-reserve-sub">released after 60 days</div>
-        </div>
-        <div class="pricing-list">
-          <div class="pricing-list-item">
-            <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-            <span>Instant approval</span>
-          </div>
-          <div class="pricing-list-item">
-            <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-            <span>Visa, Mastercard, Amex, Discover</span>
-          </div>
-          <div class="pricing-list-item">
-            <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-            <span>T+2 payouts, 3x per week</span>
-          </div>
-          <div class="pricing-list-item">
-            <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-            <span>Multi-rail intelligent routing</span>
-          </div>
-          <div class="pricing-list-item">
-            <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-            <span>Uptime protection &amp; failover</span>
-          </div>
-          <div class="pricing-list-item">
-            <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-            <span>Chargeback dispute support</span>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="pricing-note">
-      Most merchants run both rails simultaneously. PayPal converts customers who don't want to enter card data. Cards capture everyone else. Combined, our merchants average <strong>94%+ approval rates</strong>.
+      PayPal checkout converts the customers other processors turn away — fast approvals, transparent reserves, and no card data to handle. Our merchants average <strong>94%+ approval rates</strong>.
     </div>
   </div>
 </section>
@@ -3299,11 +3257,6 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
         <div class="compare-cell them">10–25% held 180+ days</div>
       </div>
       <div class="compare-row">
-        <div class="compare-cell label">Settlement speed</div>
-        <div class="compare-cell us"><span class="yes">✓</span>T+2, 3×/week</div>
-        <div class="compare-cell them">T+7 to T+14</div>
-      </div>
-      <div class="compare-row">
         <div class="compare-cell label">Pricing transparency</div>
         <div class="compare-cell us"><span class="yes">✓</span>Flat 11%, all-in</div>
         <div class="compare-cell them">Hidden interchange-plus</div>
@@ -3327,36 +3280,6 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 
     <!-- SUMMARY LINE -->
     <p class="effrate-summary">Add it all up and a "cheaper" processor costs roughly <strong>$400k+ more per year</strong> on $100k/month volume — between lost sales, hidden fees, and reserves you'll never see again. The right infrastructure pays for itself before lunch.</p>
-  </div>
-</section>
-
-<!-- ============== HOW IT WORKS ============== -->
-<section class="section" id="how">
-  <div class="section-inner">
-    <div class="section-header">
-      <div class="section-eyebrow">From application to processing</div>
-      <h2>Three steps. One day.</h2>
-    </div>
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <h3>Message us on Telegram</h3>
-        <p>Send us your business name, product category, and monthly volume. We respond in minutes, not days.</p>
-        <span class="step-time">~5 minutes</span>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <h3>Get approved</h3>
-        <p>We review your application, verify your business, and issue a merchant account. No 40-page applications, no underwriting limbo.</p>
-        <span class="step-time">Under 24 hours</span>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <h3>Start processing</h3>
-        <p>Integrate via API or hosted checkout. Begin accepting cards and PayPal immediately. T+2 payouts to your bank, 3x per week.</p>
-        <span class="step-time">Same day</span>
-      </div>
-    </div>
   </div>
 </section>
 
@@ -3484,7 +3407,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
               </div>
             </div>
             <div class="t-card">
-              <p class="t-card-text">"Three previous MIDs in 18 months. With 3P it's been 9 months and growing. Stability finally feels real."</p>
+              <p class="t-card-text">"Three processors dropped us in 18 months. With 3P it's been 9 months and growing. Stability finally feels real."</p>
               <div class="t-card-meta">
                 <div class="t-card-volume">$95k/mo</div>
                 <div class="t-card-context">Research compound supplier · serial terminations</div>
@@ -3507,7 +3430,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
               </div>
             </div>
             <div class="t-card">
-              <p class="t-card-text">"Three previous MIDs in 18 months. With 3P it's been 9 months and growing. Stability finally feels real."</p>
+              <p class="t-card-text">"Three processors dropped us in 18 months. With 3P it's been 9 months and growing. Stability finally feels real."</p>
               <div class="t-card-meta">
                 <div class="t-card-volume">$95k/mo</div>
                 <div class="t-card-context">Research compound supplier · serial terminations</div>
