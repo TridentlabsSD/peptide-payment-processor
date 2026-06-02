@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "cleanUrls": true,
+  "functions": {
+    "api/index.py": { "includeFiles": "core.py" }
+  },
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/index?__p=:path*" },
+    { "source": "/favicon.ico", "destination": "/assets/logo.png" },
+    { "source": "/apple-touch-icon.png", "destination": "/assets/logo.png" },
+    { "source": "/apple-touch-icon-precomposed.png", "destination": "/assets/logo.png" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, must-revalidate" }]
+    }
+  ]
+}

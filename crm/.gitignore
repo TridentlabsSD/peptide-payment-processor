@@ -1,0 +1,17 @@
+# Local SQLite database (never deploy this — production uses Postgres)
+data/
+*.db
+
+# Python
+__pycache__/
+*.pyc
+
+# Vercel
+.vercel/
+
+# Local notes / vendor docs
+.api-docs/
+
+# OS
+.DS_Store
+Thumbs.db

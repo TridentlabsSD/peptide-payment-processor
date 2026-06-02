@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Set a new password · 3PSolutions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/png" href="assets/logo.png" />
+  <style>
+    :root{ --navy:#0A2540; --blue:#1B6EF3; --green:#16A34A; --red:#E5484D;
+      --text:#1A1F36; --muted:#6B7280; --border:#E5E9F0; --surface-2:#F6F8FB; }
+    *{box-sizing:border-box;} html,body{margin:0;min-height:100%;}
+    body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:var(--text);
+      -webkit-font-smoothing:antialiased; min-height:100vh; display:grid; place-items:center; padding:32px;
+      background:radial-gradient(125% 120% at 0% 0%, #16467a 0%, #0f3358 45%, var(--navy) 100%);}
+    .card{width:100%; max-width:420px; background:#fff; border-radius:18px; padding:34px 32px; box-shadow:0 30px 70px rgba(0,0,0,.32);}
+    .brand{display:flex; align-items:center; gap:12px; margin-bottom:22px;}
+    .brand img{width:44px;height:44px;border-radius:12px;background:#fff;padding:4px;box-shadow:0 6px 16px rgba(10,37,64,.18);}
+    .brand b{font-size:16px;} .brand span{display:block;font-size:12px;color:var(--muted);}
+    h2{margin:0 0 6px;font-size:22px;font-weight:800;letter-spacing:-.4px;}
+    .lead{margin:0 0 22px;color:var(--muted);font-size:14px;}
+    label{display:block;font-size:13px;font-weight:600;margin:0 0 7px;}
+    .field{margin-bottom:16px;position:relative;}
+    input{width:100%;padding:12px 44px 12px 14px;font-size:14px;font-family:inherit;color:var(--text);
+      border:1px solid var(--border);border-radius:11px;background:var(--surface-2);outline:none;}
+    input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(27,110,243,.15);background:#fff;}
+    .reveal-btn{position:absolute;right:8px;top:31px;background:none;border:none;cursor:pointer;padding:6px;color:#9AA3B2;line-height:0;border-radius:7px;}
+    .reveal-btn:hover{color:var(--text);background:rgba(0,0,0,.04);}
+    .reveal-btn svg{width:18px;height:18px;display:block;}
+    .reveal-btn .eye-off{display:none;} .reveal-btn.on .eye{display:none;} .reveal-btn.on .eye-off{display:block;}
+    .btn{width:100%;border:none;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#0c2c4d,var(--navy));
+      color:#fff;font-weight:700;font-size:14.5px;padding:14px;border-radius:11px;margin-top:6px;}
+    .btn:hover{transform:translateY(-1px);} .btn:disabled{opacity:.6;transform:none;cursor:default;}
+    .msg{display:none;padding:11px 13px;border-radius:10px;font-size:13px;font-weight:500;margin-bottom:16px;}
+    .msg.err{display:block;background:#FCEBEC;color:var(--red);border:1px solid #f6c9cb;}
+    .state{display:none;} .state.show{display:block;}
+    .center{text-align:center;} .links{margin-top:18px;font-size:13px;text-align:center;}
+    .links a{color:var(--blue);font-weight:600;text-decoration:none;}
+    .who{font-size:13px;color:var(--muted);margin:-12px 0 18px;}
+    .who b{color:var(--text);}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <img src="assets/logo.png" alt="3PSolutions" />
+      <div><b>3PSolutions</b><span>Merchant CRM</span></div>
+    </div>
+
+    <div class="state show" id="stateLoading"><p class="lead">Checking your reset link…</p></div>
+
+    <div class="state center" id="stateInvalid">
+      <h2>Link not valid</h2>
+      <p class="lead">This password reset link is invalid or has expired.</p>
+      <div class="links"><a href="/forgot">Request a new link</a> · <a href="/login">Back to sign in</a></div>
+    </div>
+
+    <form class="state" id="stateForm">
+      <h2>Set a new password</h2>
+      <p class="who">for <b id="who"></b></p>
+      <div class="msg" id="msg"></div>
+      <div class="field">
+        <label for="password">New password</label>
+        <input type="password" id="password" placeholder="At least 8 characters" required minlength="8" autofocus />
+        <button type="button" class="reveal-btn" data-target="password" aria-label="Show password" tabindex="-1">
+          <svg class="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-10-8-10-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+        </button>
+      </div>
+      <div class="field">
+        <label for="confirm">Confirm new password</label>
+        <input type="password" id="confirm" placeholder="Re-enter password" required />
+      </div>
+      <button class="btn" type="submit" id="submitBtn">Update password</button>
+    </form>
+  </div>
+
+  <script>
+    const token = new URLSearchParams(location.search).get('token') || '';
+    const show = (id) => document.querySelectorAll('.state').forEach(s => s.classList.toggle('show', s.id === id));
+
+    document.querySelectorAll('.reveal-btn').forEach((b) => b.addEventListener('click', () => {
+      const i = document.getElementById(b.dataset.target);
+      const r = i.type === 'password'; i.type = r ? 'text' : 'password';
+      b.classList.toggle('on', r); b.setAttribute('aria-label', r ? 'Hide password' : 'Show password');
+    }));
+
+    (async () => {
+      if (!token) return show('stateInvalid');
+      try {
+        const d = await (await fetch('/api/reset-info?token=' + encodeURIComponent(token))).json();
+        if (!d.ok) return show('stateInvalid');
+        document.getElementById('who').textContent = d.email;
+        show('stateForm');
+      } catch (_) { show('stateInvalid'); }
+    })();
+
+    document.getElementById('stateForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('msg'), btn = document.getElementById('submitBtn');
+      const pw = document.getElementById('password').value, cf = document.getElementById('confirm').value;
+      msg.className = 'msg';
+      if (pw.length < 8) { msg.className = 'msg err'; msg.textContent = 'Password must be at least 8 characters.'; return; }
+      if (pw !== cf) { msg.className = 'msg err'; msg.textContent = 'Passwords do not match.'; return; }
+      btn.disabled = true; btn.textContent = 'Updating…';
+      try {
+        const d = await (await fetch('/api/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, password: pw }) })).json();
+        if (d.ok) { window.location.href = '/'; return; }
+        throw new Error(d.error || 'Could not reset password.');
+      } catch (err) {
+        msg.className = 'msg err'; msg.textContent = err.message;
+        btn.disabled = false; btn.textContent = 'Update password';
+      }
+    });
+  </script>
+</body>
+</html>

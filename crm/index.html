@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3PSolutions — Merchant Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/png" href="assets/logo.png" />
+  <link rel="apple-touch-icon" href="assets/logo.png" />
+  <link rel="stylesheet" href="assets/styles.css?v=2" />
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="assets/logo.png" alt="3PSolutions logo" class="brand-logo" />
+        <div class="brand-text">
+          <span class="brand-name">3PSolutions</span>
+          <span class="brand-sub">Merchant CRM</span>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <span class="nav-section">Menu</span>
+        <a class="nav-item active" href="#"><span class="nav-ico" data-ico="grid"></span>Dashboard</a>
+        <a class="nav-item" id="navMerchants" href="#merchants" style="display:none"><span class="nav-ico" data-ico="users"></span>Merchants</a>
+        <a class="nav-item" href="#transactions"><span class="nav-ico" data-ico="swap"></span>Transactions</a>
+        <a class="nav-item" href="#payouts"><span class="nav-ico" data-ico="payout"></span>Payouts</a>
+        <a class="nav-item" id="navPayoutMethods" href="#payout-methods"><span class="nav-ico" data-ico="wallet"></span>Payout Methods</a>
+        <span class="nav-section">Account</span>
+        <a class="nav-item" href="#"><span class="nav-ico" data-ico="cog"></span>Settings</a>
+        <a class="nav-item" href="#"><span class="nav-ico" data-ico="help"></span>Support</a>
+        <a class="nav-item nav-logout js-logout" id="sidebarLogout" href="#"><span class="nav-ico" data-ico="logout"></span>Log out</a>
+      </nav>
+
+      <div class="upgrade-card">
+        <span class="upgrade-title">Next payout scheduled</span>
+        <span class="upgrade-desc" id="sidebarPayout">—</span>
+        <button class="upgrade-btn">View payouts</button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <h1 class="page-title">Dashboard</h1>
+          <p class="page-sub" id="pageSub">Welcome back — here's how your business is performing.</p>
+        </div>
+        <div class="topbar-right">
+          <div class="search">
+            <span class="search-ico" data-ico="search"></span>
+            <input type="text" placeholder="Search transactions, customers…" />
+          </div>
+          <div class="user">
+            <div class="avatar"><span id="avatarInitials">··</span></div>
+            <div class="user-meta">
+              <span class="user-name" id="userName">Signed in</span>
+              <span class="role-chip" id="userRole"></span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="content">
+        <!-- Admin context bar (which merchant is being viewed) -->
+        <div class="context-bar" id="contextBar" style="display:none">
+          <div class="ctx-left">
+            <span class="ctx-avatar" id="ctxAvatar"></span>
+            <div class="ctx-text">
+              <span class="ctx-label">Viewing merchant</span>
+              <span class="ctx-name" id="ctxName"></span>
+              <span class="ctx-meta" id="ctxMeta"></span>
+            </div>
+          </div>
+          <div class="ctx-actions">
+            <div class="ctx-status-wrap">
+              <span class="ctx-status-label">Account status</span>
+              <select class="status-select ctx-status" id="ctxStatus" aria-label="Merchant account status">
+                <option value="active">Active</option>
+                <option value="paused">Paused</option>
+                <option value="suspended">Suspended</option>
+              </select>
+            </div>
+            <a class="ctx-btn" href="#merchants"><span class="fp-ico" data-ico="users"></span> All merchants</a>
+          </div>
+        </div>
+
+        <!-- Range toggle -->
+        <div class="range-row">
+          <div class="range-label">
+            <span data-ico="calendar"></span>
+            <span>Showing metrics for</span>
+            <span class="data-badge sample" id="dataBadge">Sample data</span>
+          </div>
+          <div class="segmented" id="rangeToggle" role="tablist">
+            <button class="seg active" data-range="daily" role="tab">Daily</button>
+            <button class="seg" data-range="weekly" role="tab">Weekly</button>
+            <button class="seg" data-range="monthly" role="tab">Monthly</button>
+          </div>
+        </div>
+
+        <!-- Metric cards -->
+        <section class="metrics" id="metrics"></section>
+
+        <!-- Charts row -->
+        <section class="grid-2">
+          <div class="card chart-card">
+            <div class="card-head">
+              <div>
+                <h3 class="card-title">Revenue over time</h3>
+                <p class="card-sub" id="revenueSub">Cash collected vs. net revenue</p>
+              </div>
+              <div class="legend">
+                <span class="legend-item"><i class="swatch swatch-blue"></i>Collected</span>
+                <span class="legend-item"><i class="swatch swatch-navy"></i>Net revenue</span>
+              </div>
+            </div>
+            <div class="chart-wrap"><canvas id="revenueChart"></canvas></div>
+          </div>
+
+          <div class="card breakdown-card">
+            <div class="card-head">
+              <div>
+                <h3 class="card-title">Where the money went</h3>
+                <p class="card-sub">Breakdown for the selected period</p>
+              </div>
+            </div>
+            <div class="chart-wrap donut-wrap"><canvas id="breakdownChart"></canvas></div>
+            <ul class="breakdown-legend" id="breakdownLegend"></ul>
+          </div>
+        </section>
+
+        <!-- Tables row -->
+        <section class="grid-2">
+          <div class="card">
+            <div class="card-head">
+              <h3 class="card-title">Recent transactions</h3>
+              <a class="link" id="viewAllTransactions" href="#transactions">View all</a>
+            </div>
+            <table class="table" id="txTable">
+              <thead>
+                <tr><th>Customer</th><th>Method</th><th>Status</th><th class="ralign">Amount</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h3 class="card-title">Payout history</h3>
+              <a class="link" id="viewAllPayouts" href="#payouts">View all</a>
+            </div>
+            <table class="table" id="payoutTable">
+              <thead>
+                <tr><th>Date</th><th>Destination</th><th>Status</th><th class="ralign">Amount</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <footer class="foot">
+          <span>3PSolutions Merchant Dashboard · Prototype</span>
+          <span id="footStatus">No Sheet connected — showing built-in sample data.</span>
+        </footer>
+      </div>
+    </main>
+  </div>
+
+  <!-- Full-page payout history (opens from "View all") -->
+  <section class="fullpage" id="payoutsPage" aria-hidden="true">
+    <header class="fp-top">
+      <button class="fp-back fp-exit" type="button">
+        <span class="fp-ico" data-ico="back"></span> Back to dashboard
+      </button>
+      <div class="fp-head-text">
+        <div class="fp-title">Payout history</div>
+        <div class="fp-sub">Every payout to your connected accounts</div>
+      </div>
+    </header>
+    <div class="fp-body">
+      <div class="fp-summary" id="payoutsSummary"></div>
+      <div class="card">
+        <div class="card-head">
+          <h3 class="card-title">All payouts</h3>
+          <span class="fp-count" id="payoutsCount"></span>
+        </div>
+        <table class="table" id="payoutsFullTable">
+          <thead>
+            <tr><th>Date</th><th>Destination</th><th>Status</th><th class="ralign">Amount</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Full-page recent transactions (opens from "View all") -->
+  <section class="fullpage" id="transactionsPage" aria-hidden="true">
+    <header class="fp-top">
+      <button class="fp-back fp-exit" type="button">
+        <span class="fp-ico" data-ico="back"></span> Back to dashboard
+      </button>
+      <div class="fp-head-text">
+        <div class="fp-title">Recent transactions</div>
+        <div class="fp-sub">Every payment processed on your account</div>
+      </div>
+    </header>
+    <div class="fp-body">
+      <div class="fp-summary" id="transactionsSummary"></div>
+      <div class="card">
+        <div class="card-head">
+          <h3 class="card-title">All transactions</h3>
+          <span class="fp-count" id="transactionsCount"></span>
+        </div>
+        <table class="table" id="transactionsFullTable">
+          <thead>
+            <tr><th>Customer</th><th>Method</th><th>Status</th><th class="ralign">Amount</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Full-page merchants directory (admin only, opens from "Merchants") -->
+  <section class="fullpage" id="merchantsPage" aria-hidden="true">
+    <header class="fp-top">
+      <button class="fp-back fp-exit" type="button">
+        <span class="fp-ico" data-ico="back"></span> Back to dashboard
+      </button>
+      <div class="fp-head-text">
+        <div class="fp-title">Merchants</div>
+        <div class="fp-sub">All merchants on the platform — click one to view their dashboard</div>
+      </div>
+      <div class="fp-actions">
+        <button class="fp-action" id="inviteBtn" type="button"><span class="fp-ico" data-ico="plus"></span> Invite a client</button>
+      </div>
+    </header>
+    <div class="fp-body">
+      <div class="fp-summary" id="merchantsSummary"></div>
+      <div class="card">
+        <div class="card-head">
+          <h3 class="card-title">All merchants</h3>
+          <span class="fp-count" id="merchantsCount"></span>
+        </div>
+        <table class="table" id="merchantsFullTable">
+          <thead>
+            <tr><th>Merchant</th><th>Business</th><th>Status</th><th class="ralign">Fee</th><th class="ralign">Volume (30d)</th><th class="ralign">Txns</th><th class="ralign"></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="card" id="invitesCard" style="display:none; margin-top:18px;">
+        <div class="card-head">
+          <h3 class="card-title">Pending invites</h3>
+          <span class="fp-count" id="invitesCount"></span>
+        </div>
+        <table class="table" id="invitesTable">
+          <thead>
+            <tr><th>Client email</th><th>Merchant</th><th>Status</th><th>Expires</th><th class="ralign"></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Confirm delete merchant (admin) -->
+  <div class="modal-overlay" id="confirmModal" aria-hidden="true">
+    <div class="modal modal-sm">
+      <div class="modal-head">
+        <h3 id="confirmTitle">Delete merchant?</h3>
+        <button class="icon-btn" id="confirmClose" type="button" aria-label="Close"><span data-ico="close"></span></button>
+      </div>
+      <p class="modal-lead" id="confirmMsg"></p>
+      <div class="modal-msg" id="confirmError"></div>
+      <div class="confirm-actions">
+        <button class="btn-secondary" id="confirmCancel" type="button">Cancel</button>
+        <button class="btn-danger" id="confirmDelete" type="button">Delete permanently</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payout methods (merchant sets where payouts go) -->
+  <section class="fullpage" id="payoutMethodsPage" aria-hidden="true">
+    <header class="fp-top">
+      <button class="fp-back fp-exit" type="button">
+        <span class="fp-ico" data-ico="back"></span> Back to dashboard
+      </button>
+      <div class="fp-head-text">
+        <div class="fp-title">Payout methods</div>
+        <div class="fp-sub" id="pmSub">Choose where 3PSolutions sends your payouts</div>
+      </div>
+    </header>
+    <div class="fp-body fp-narrow">
+      <div class="pm-msg" id="pmMsg"></div>
+
+      <div class="card pm-card">
+        <div class="pm-card-head">
+          <div class="pm-card-title">
+            <span class="pm-ico ach"><span class="i" data-ico="bank"></span></span>
+            <div><h3>Bank account (ACH)</h3><p>Receive payouts to a US bank account.</p></div>
+          </div>
+          <label class="switch"><input type="checkbox" id="pmAchEnabled"><span class="slider"></span></label>
+        </div>
+        <div class="pm-fields" id="pmAchFields">
+          <div class="field"><label for="pmAchBank">Bank name</label><input id="pmAchBank" placeholder="e.g. Chase" /></div>
+          <div class="field"><label for="pmAchAccount">Account number</label><input id="pmAchAccount" inputmode="numeric" placeholder="Account number" /></div>
+          <div class="field"><label for="pmAchRouting">Routing number</label><input id="pmAchRouting" inputmode="numeric" placeholder="9 digits" maxlength="9" /></div>
+        </div>
+      </div>
+
+      <div class="card pm-card">
+        <div class="pm-card-head">
+          <div class="pm-card-title">
+            <span class="pm-ico crypto"><span class="i" data-ico="crypto"></span></span>
+            <div><h3>Crypto — USDT</h3><p>Receive payouts in USDT on the Ethereum network.</p></div>
+          </div>
+          <label class="switch"><input type="checkbox" id="pmUsdtEnabled"><span class="slider"></span></label>
+        </div>
+        <div class="pm-fields" id="pmUsdtFields">
+          <div class="field">
+            <label for="pmUsdtAddress">USDT wallet address (ERC-20)</label>
+            <input id="pmUsdtAddress" class="mono" placeholder="0x…" spellcheck="false" />
+            <div class="pm-hint">ERC-20 only — must start with <code>0x</code> followed by 40 hex characters.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card pm-card" id="pmPrimaryCard" style="display:none">
+        <div class="pm-card-title"><div><h3>Primary destination</h3><p>You've enabled both — where should payouts go by default?</p></div></div>
+        <div class="pm-primary">
+          <label class="pm-radio"><input type="radio" name="pmPrimary" value="ach"> Bank account (ACH)</label>
+          <label class="pm-radio"><input type="radio" name="pmPrimary" value="usdt"> USDT (ERC-20)</label>
+        </div>
+      </div>
+
+      <button class="btn-primary pm-save" id="pmSave" type="button">Save payout methods</button>
+    </div>
+  </section>
+
+  <!-- Invite a client (admin) -->
+  <div class="modal-overlay" id="inviteModal" aria-hidden="true">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>Invite a client</h3>
+        <button class="icon-btn" id="inviteModalClose" type="button" aria-label="Close"><span data-ico="close"></span></button>
+      </div>
+      <form id="inviteForm">
+        <p class="modal-lead">Generate a single-use link that lets a client create their account and access only their own data.</p>
+        <div class="modal-msg" id="inviteMsg"></div>
+        <div class="field">
+          <label for="invMerchantSelect">Merchant</label>
+          <select id="invMerchantSelect"></select>
+        </div>
+        <div id="newMerchantFields" style="display:none">
+          <div class="field"><label for="invNewName">New merchant name</label><input id="invNewName" placeholder="e.g. BrightPeak Co" /></div>
+          <div class="field"><label for="invNewType">Business type</label><input id="invNewType" placeholder="e.g. Nutraceuticals" /></div>
+        </div>
+        <div class="field"><label for="invEmailInput">Client email</label><input type="email" id="invEmailInput" placeholder="owner@company.com" required /></div>
+        <div class="field"><label for="invFee">Processing fee (%)</label>
+          <input type="number" id="invFee" step="0.01" min="0" max="20" value="2.9" />
+          <div class="modal-hint">The percentage 3PSolutions charges this merchant. Drives their processing-fee figures.</div>
+        </div>
+        <div class="field"><label for="invExpiry">Invite expires in</label>
+          <select id="invExpiry"><option value="7">7 days</option><option value="14">14 days</option><option value="30">30 days</option></select>
+        </div>
+        <button class="btn-primary" type="submit" id="invSubmit">Generate invite link</button>
+      </form>
+      <div class="invite-result" id="inviteResult" style="display:none">
+        <div class="ir-ok"><span data-ico="payout"></span> Invite created</div>
+        <p class="ir-label">Send this link to the client:</p>
+        <div class="ir-row"><input id="inviteLink" readonly /><button class="btn-copy" id="copyLink" type="button">Copy</button></div>
+        <p class="ir-note" id="inviteResultNote"></p>
+        <button class="btn-secondary" id="inviteAnother" type="button">Create another invite</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="assets/config.js?v=2"></script>
+  <script src="assets/data.js?v=2"></script>
+  <script src="assets/sheet.js?v=2"></script>
+  <script src="assets/app.js?v=2"></script>
+  <script src="assets/auth.js?v=2"></script>
+</body>
+</html>

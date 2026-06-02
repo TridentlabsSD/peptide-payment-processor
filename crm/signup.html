@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Activate your account · 3PSolutions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/png" href="assets/logo.png" />
+  <style>
+    :root{ --navy:#0A2540; --blue:#1B6EF3; --green:#16A34A; --red:#E5484D;
+      --text:#1A1F36; --muted:#6B7280; --border:#E5E9F0; --surface-2:#F6F8FB; }
+    *{box-sizing:border-box;}
+    html,body{margin:0;min-height:100%;}
+    body{
+      font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+      color:var(--text); -webkit-font-smoothing:antialiased; min-height:100vh;
+      display:grid; place-items:center; padding:32px;
+      background:radial-gradient(125% 120% at 0% 0%, #16467a 0%, #0f3358 45%, var(--navy) 100%);
+    }
+    .card{
+      width:100%; max-width:420px; background:#fff; border-radius:18px; padding:34px 32px;
+      box-shadow:0 30px 70px rgba(0,0,0,.32); animation:rise .4s ease both;
+    }
+    @keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+    .brand{display:flex; align-items:center; gap:12px; margin-bottom:22px;}
+    .brand img{width:44px;height:44px;border-radius:12px;background:#fff;padding:4px;box-shadow:0 6px 16px rgba(10,37,64,.18);}
+    .brand b{font-size:16px;} .brand span{display:block;font-size:12px;color:var(--muted);}
+    h2{margin:0 0 6px;font-size:22px;font-weight:800;letter-spacing:-.4px;}
+    .lead{margin:0 0 22px;color:var(--muted);font-size:14px;}
+    .invite-box{
+      display:flex; align-items:center; gap:12px; background:var(--surface-2);
+      border:1px solid var(--border); border-radius:12px; padding:13px 14px; margin-bottom:20px;
+    }
+    .invite-box .ava{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px;}
+    .invite-box .who{min-width:0;}
+    .invite-box .m{font-weight:700;font-size:14px;}
+    .invite-box .e{font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    label{display:block;font-size:13px;font-weight:600;margin:0 0 7px;}
+    .field{margin-bottom:16px; position:relative;}
+    input{width:100%;padding:12px 14px;font-size:14px;font-family:inherit;color:var(--text);
+      border:1px solid var(--border);border-radius:11px;background:var(--surface-2);outline:none;transition:border .15s,box-shadow .15s,background .15s;}
+    input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(27,110,243,.15);background:#fff;}
+    input:disabled{color:var(--muted);}
+    #password, #confirm{padding-right:44px;}
+    .reveal-btn{position:absolute; right:8px; top:31px; background:none; border:none; cursor:pointer; padding:6px; color:#9AA3B2; line-height:0; border-radius:7px;}
+    .reveal-btn:hover{color:var(--text); background:rgba(0,0,0,.04);}
+    .reveal-btn svg{width:18px; height:18px; display:block;}
+    .reveal-btn .eye-off{display:none;}
+    .reveal-btn.on .eye{display:none;}
+    .reveal-btn.on .eye-off{display:block;}
+    .req{font-size:11.5px;color:var(--muted);margin-top:6px;}
+    .btn{width:100%;border:none;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#0c2c4d,var(--navy));
+      color:#fff;font-weight:700;font-size:14.5px;padding:14px;border-radius:11px;margin-top:6px;
+      box-shadow:0 10px 22px rgba(10,37,64,.25);transition:transform .12s;}
+    .btn:hover{transform:translateY(-1px);} .btn:disabled{opacity:.6;transform:none;cursor:default;}
+    .msg{display:none;padding:11px 13px;border-radius:10px;font-size:13px;font-weight:500;margin-bottom:16px;}
+    .msg.err{display:block;background:#FCEBEC;color:var(--red);border:1px solid #f6c9cb;}
+    .secure-note{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:18px;font-size:12px;color:var(--muted);}
+    .secure-note svg{width:14px;height:14px;color:var(--green);}
+    .center{text-align:center;}
+    .state{display:none;} .state.show{display:block;}
+    .big-ico{width:54px;height:54px;border-radius:14px;display:grid;place-items:center;margin:0 auto 14px;}
+    .big-ico.bad{background:#FCEBEC;color:var(--red);} .big-ico svg{width:28px;height:28px;}
+    .link{color:var(--blue);font-weight:600;text-decoration:none;}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <img src="assets/logo.png" alt="3PSolutions" />
+      <div><b>3PSolutions</b><span>Merchant CRM</span></div>
+    </div>
+
+    <!-- Loading -->
+    <div class="state show" id="stateLoading">
+      <p class="lead">Checking your invite…</p>
+    </div>
+
+    <!-- Invalid / expired / used -->
+    <div class="state center" id="stateInvalid">
+      <div class="big-ico bad">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+      </div>
+      <h2 id="invalidTitle">Invite not valid</h2>
+      <p class="lead" id="invalidMsg">This invite link is invalid or has expired.</p>
+      <p class="req">Please contact 3PSolutions to request a new invite, or <a class="link" href="/login">sign in</a> if you already have an account.</p>
+    </div>
+
+    <!-- Signup form -->
+    <form class="state" id="stateForm" autocomplete="on">
+      <h2>Activate your account</h2>
+      <p class="lead">Set a password to finish setting up your dashboard.</p>
+
+      <div class="invite-box">
+        <span class="ava" id="invAva">··</span>
+        <div class="who">
+          <div class="m" id="invMerchant">—</div>
+          <div class="e" id="invEmail">—</div>
+        </div>
+      </div>
+
+      <div class="msg" id="formMsg"></div>
+
+      <div class="field">
+        <label for="password">Create password</label>
+        <input type="password" id="password" placeholder="At least 8 characters" required minlength="8" autofocus />
+        <button type="button" class="reveal-btn" data-target="password" aria-label="Show password" tabindex="-1">
+          <svg class="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-10-8-10-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+        </button>
+        <div class="req">Use at least 8 characters.</div>
+      </div>
+      <div class="field">
+        <label for="confirm">Confirm password</label>
+        <input type="password" id="confirm" placeholder="Re-enter password" required />
+        <button type="button" class="reveal-btn" data-target="confirm" aria-label="Show password" tabindex="-1">
+          <svg class="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-10-8-10-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+        </button>
+      </div>
+
+      <button class="btn" type="submit" id="submitBtn">Create account</button>
+
+      <div class="secure-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Secured with 256-bit encryption
+      </div>
+    </form>
+  </div>
+
+  <script>
+    document.querySelectorAll('.reveal-btn').forEach((b) => {
+      b.addEventListener('click', () => {
+        const input = document.getElementById(b.dataset.target);
+        const reveal = input.type === 'password';
+        input.type = reveal ? 'text' : 'password';
+        b.classList.toggle('on', reveal);
+        b.setAttribute('aria-label', reveal ? 'Hide password' : 'Show password');
+      });
+    });
+
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token') || '';
+    const show = (id) => document.querySelectorAll('.state').forEach(s => s.classList.toggle('show', s.id === id));
+    const initials = (s) => String(s || '').replace(/@.*/, '').split(/[.\s_+-]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'U';
+
+    async function validate() {
+      if (!token) return showInvalid('Missing invite', 'This link is missing its invite token.');
+      try {
+        const res = await fetch('/api/invite?token=' + encodeURIComponent(token));
+        const data = await res.json();
+        if (!data.ok) {
+          const map = { used: ['Invite already used', 'This invite has already been used to create an account.'],
+                        expired: ['Invite expired', 'This invite link has expired.'],
+                        invalid: ['Invite not valid', 'This invite link is invalid.'] };
+          const [t, m] = map[data.error] || map.invalid;
+          return showInvalid(t, m);
+        }
+        document.getElementById('invMerchant').textContent = data.merchant_name || (data.role === 'admin' ? 'Administrator account' : 'Your account');
+        document.getElementById('invEmail').textContent = data.email;
+        document.getElementById('invAva').textContent = initials(data.merchant_name || data.email);
+        show('stateForm');
+      } catch (e) {
+        showInvalid('Something went wrong', 'Could not verify this invite. Please try again.');
+      }
+    }
+    function showInvalid(title, msg) {
+      document.getElementById('invalidTitle').textContent = title;
+      document.getElementById('invalidMsg').textContent = msg;
+      show('stateInvalid');
+    }
+
+    document.getElementById('stateForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('formMsg');
+      const btn = document.getElementById('submitBtn');
+      const pw = document.getElementById('password').value;
+      const cf = document.getElementById('confirm').value;
+      msg.className = 'msg';
+      if (pw.length < 8) { msg.className = 'msg err'; msg.textContent = 'Password must be at least 8 characters.'; return; }
+      if (pw !== cf) { msg.className = 'msg err'; msg.textContent = 'Passwords do not match.'; return; }
+      btn.disabled = true; btn.textContent = 'Creating account…';
+      try {
+        const res = await fetch('/api/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, password: pw }) });
+        const data = await res.json();
+        if (data.ok) { window.location.href = '/'; return; }
+        throw new Error(data.error || 'Could not create account.');
+      } catch (err) {
+        msg.className = 'msg err'; msg.textContent = err.message;
+        btn.disabled = false; btn.textContent = 'Create account';
+      }
+    });
+
+    validate();
+  </script>
+</body>
+</html>
