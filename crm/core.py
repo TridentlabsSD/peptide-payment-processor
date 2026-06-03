@@ -141,6 +141,20 @@ def init_db():
                 conn.execute("ALTER TABLE merchants ADD COLUMN %s TEXT" % col)
         conn.commit()
 
+    # Agency role support — add columns idempotently on both backends.
+    if IS_PG:
+        conn.execute("ALTER TABLE merchants ADD COLUMN IF NOT EXISTS agency_id INTEGER")
+        conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS commission_percent REAL")
+        conn.execute("ALTER TABLE invites ADD COLUMN IF NOT EXISTS commission_percent REAL")
+    else:
+        if "agency_id" not in _columns(conn, "merchants"):
+            conn.execute("ALTER TABLE merchants ADD COLUMN agency_id INTEGER")
+        if "commission_percent" not in _columns(conn, "users"):
+            conn.execute("ALTER TABLE users ADD COLUMN commission_percent REAL")
+        if "commission_percent" not in _columns(conn, "invites"):
+            conn.execute("ALTER TABLE invites ADD COLUMN commission_percent REAL")
+    conn.commit()
+
     # Ensure an admin account exists.
     if conn.execute("SELECT COUNT(*) AS n FROM users WHERE role='admin'").fetchone()["n"] == 0:
         if conn.execute("SELECT 1 AS x FROM users WHERE username=?", (DEFAULT_ADMIN[0].lower(),)).fetchone():
@@ -212,6 +226,13 @@ def get_user_row(username):
     return dict(row) if row else None
 
 
+def get_user_by_id(uid):
+    conn = get_db()
+    row = conn.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
 def get_merchant(mid):
     conn = get_db()
     row = conn.execute("SELECT * FROM merchants WHERE id = ?", (mid,)).fetchone()
@@ -224,6 +245,26 @@ def all_merchants():
     rows = conn.execute("SELECT * FROM merchants ORDER BY name").fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def merchants_for_agency(agency_user_id):
+    """Merchants in this agency's downline (merchants.agency_id == the agency user's id)."""
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM merchants WHERE agency_id = ? ORDER BY name", (agency_user_id,)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def list_agencies():
+    """All agency accounts with their downline count (admin view)."""
+    conn = get_db()
+    rows = [dict(r) for r in conn.execute(
+        "SELECT id, username, commission_percent FROM users WHERE role='agency' ORDER BY username").fetchall()]
+    for r in rows:
+        r["merchant_count"] = conn.execute(
+            "SELECT COUNT(*) AS n FROM merchants WHERE agency_id=?", (r["id"],)).fetchone()["n"]
+    conn.close()
+    return rows
 
 
 # ----------------------------- sessions (signed cookie) -------------------
@@ -364,14 +405,15 @@ def verify_reset_token(token):
 
 
 # ----------------------------- invites ------------------------------------
-def create_invite(email, merchant_id, role, created_by, expires_days):
+def create_invite(email, merchant_id, role, created_by, expires_days, commission_percent=None):
     token = secrets.token_urlsafe(24)
     now = int(time.time())
     exp = now + int(expires_days) * 86400 if expires_days else None
     conn = get_db()
     conn.execute(
-        "INSERT INTO invites (token, email, merchant_id, role, created_by, created_at, expires_at) VALUES (?,?,?,?,?,?,?)",
-        (token, email.strip().lower(), merchant_id, role, created_by, now, exp),
+        "INSERT INTO invites (token, email, merchant_id, role, created_by, created_at, expires_at, commission_percent) "
+        "VALUES (?,?,?,?,?,?,?,?)",
+        (token, email.strip().lower(), merchant_id, role, created_by, now, exp, commission_percent),
     )
     conn.commit()
     conn.close()
@@ -543,6 +585,7 @@ def merchant_summary(merchant):
         "id": merchant["id"], "name": merchant["name"], "email": merchant.get("email"),
         "business_type": merchant.get("business_type"), "status": merchant.get("status"),
         "fee_percent": merchant.get("fee_percent"), "created_at": merchant.get("created_at"),
+        "agency_id": merchant.get("agency_id"),
         "monthVolume": m["totalCollected"]["value"], "monthTxns": m["transactions"]["value"],
         "availableBalance": m["availableBalance"]["value"],
     }
@@ -599,6 +642,9 @@ def dispatch_api(method, path, query_string, headers, body_bytes):
                 return J({"ok": False, "error": "An account already exists for this email."}, 409)
             try:
                 _insert_user(conn, email, password, inv["role"], inv["merchant_id"])
+                if inv["role"] == "agency" and inv.get("commission_percent") is not None:
+                    conn.execute("UPDATE users SET commission_percent=? WHERE username=?",
+                                 (inv["commission_percent"], email))
             except INTEGRITY_ERRORS:
                 conn.close()
                 return J({"ok": False, "error": "Account already exists."}, 409)
@@ -691,7 +737,7 @@ def dispatch_api(method, path, query_string, headers, body_bytes):
             email = (data.get("email") or "").strip().lower()
             if "@" not in email:
                 return J({"ok": False, "error": "A valid client email is required."}, 400)
-            role = data.get("role") if data.get("role") in ("merchant", "admin") else "merchant"
+            role = data.get("role") if data.get("role") in ("merchant", "admin", "agency") else "merchant"
             try:
                 expires_days = int(data.get("expires_days", 7))
             except (TypeError, ValueError):
@@ -701,6 +747,11 @@ def dispatch_api(method, path, query_string, headers, body_bytes):
                 fee = max(0.0, min(20.0, float(fee))) if fee not in (None, "") else None
             except (TypeError, ValueError):
                 fee = None
+            commission = data.get("commission_percent")
+            try:
+                commission = max(0.0, min(100.0, float(commission))) if commission not in (None, "") else None
+            except (TypeError, ValueError):
+                commission = None
             merchant_id = data.get("merchant_id")
             new_m = data.get("new_merchant")
             if role == "merchant":
@@ -727,7 +778,8 @@ def dispatch_api(method, path, query_string, headers, body_bytes):
                     return J({"ok": False, "error": "Select a merchant or enter a new one."}, 400)
             else:
                 merchant_id = None
-            tok = create_invite(email, merchant_id, role, row["username"], expires_days)
+            tok = create_invite(email, merchant_id, role, row["username"], expires_days,
+                                 commission if role == "agency" else None)
             link = "%s/signup?token=%s" % (base_url(headers), tok)
             m = get_merchant(merchant_id) if merchant_id else None
             emailed = send_invite_email(email, link, m["name"] if m else None)
@@ -782,6 +834,55 @@ def dispatch_api(method, path, query_string, headers, body_bytes):
             conn.close()
             return J({"ok": True, "merchant_id": mid})
 
+        if path == "/api/merchant/agency":
+            if not row or row["role"] != "admin":
+                return J({"ok": False, "error": "Admins only"}, 403)
+            data = body_json() or {}
+            try:
+                mid = int(data.get("merchant_id"))
+            except (TypeError, ValueError):
+                return J({"ok": False, "error": "merchant_id required"}, 400)
+            if not get_merchant(mid):
+                return J({"ok": False, "error": "Merchant not found."}, 404)
+            aid = data.get("agency_id")
+            if aid in (None, "", "none", "null"):
+                aid = None
+            else:
+                try:
+                    aid = int(aid)
+                except (TypeError, ValueError):
+                    return J({"ok": False, "error": "Invalid agency."}, 400)
+                a = get_user_by_id(aid)
+                if not a or a["role"] != "agency":
+                    return J({"ok": False, "error": "Not an agency account."}, 400)
+            conn = get_db()
+            conn.execute("UPDATE merchants SET agency_id=? WHERE id=?", (aid, mid))
+            conn.commit()
+            conn.close()
+            return J({"ok": True, "merchant_id": mid, "agency_id": aid})
+
+        if path == "/api/agency/commission":
+            if not row or row["role"] != "admin":
+                return J({"ok": False, "error": "Admins only"}, 403)
+            data = body_json() or {}
+            try:
+                aid = int(data.get("agency_id"))
+            except (TypeError, ValueError):
+                return J({"ok": False, "error": "agency_id required"}, 400)
+            comm = data.get("commission_percent")
+            try:
+                comm = max(0.0, min(100.0, float(comm))) if comm not in (None, "") else None
+            except (TypeError, ValueError):
+                return J({"ok": False, "error": "Invalid commission."}, 400)
+            a = get_user_by_id(aid)
+            if not a or a["role"] != "agency":
+                return J({"ok": False, "error": "Not an agency account."}, 404)
+            conn = get_db()
+            conn.execute("UPDATE users SET commission_percent=? WHERE id=?", (comm, aid))
+            conn.commit()
+            conn.close()
+            return J({"ok": True, "agency_id": aid, "commission_percent": comm})
+
         return J({"ok": False, "error": "Not found"}, 404)
 
     # ===================== GET =====================
@@ -803,7 +904,8 @@ def dispatch_api(method, path, query_string, headers, body_bytes):
                 m = get_merchant(row["merchant_id"])
                 mname = m["name"] if m else None
             return J({"ok": True, "username": row["username"], "role": row["role"],
-                      "merchant_id": row.get("merchant_id"), "merchant_name": mname})
+                      "merchant_id": row.get("merchant_id"), "merchant_name": mname,
+                      "commission_percent": row.get("commission_percent")})
 
         if path == "/api/invite":
             inv = get_invite(qs.get("token", [None])[0])
@@ -825,6 +927,13 @@ def dispatch_api(method, path, query_string, headers, body_bytes):
                 if not req_id:
                     return J({"ok": False, "error": "merchant_id required"}, 400)
                 target = int(req_id)
+            elif row["role"] == "agency":
+                if not req_id:
+                    return J({"ok": False, "error": "merchant_id required"}, 400)
+                target = int(req_id)
+                m_chk = get_merchant(target)
+                if not m_chk or m_chk.get("agency_id") != row["id"]:
+                    return J({"ok": False, "error": "Forbidden"}, 403)
             else:
                 target = row.get("merchant_id")
                 if target is None:
@@ -856,9 +965,18 @@ def dispatch_api(method, path, query_string, headers, body_bytes):
             return J({"ok": True, "merchant_name": merchant["name"], "methods": merchant_payout_methods(merchant)})
 
         if path == "/api/merchants":
+            if row["role"] == "admin":
+                ms = all_merchants()
+            elif row["role"] == "agency":
+                ms = merchants_for_agency(row["id"])
+            else:
+                return J({"ok": False, "error": "Forbidden"}, 403)
+            return J({"ok": True, "merchants": [merchant_summary(m) for m in ms]})
+
+        if path == "/api/agencies":
             if row["role"] != "admin":
                 return J({"ok": False, "error": "Admins only"}, 403)
-            return J({"ok": True, "merchants": [merchant_summary(m) for m in all_merchants()]})
+            return J({"ok": True, "agencies": list_agencies()})
 
         if path == "/api/invites":
             if row["role"] != "admin":

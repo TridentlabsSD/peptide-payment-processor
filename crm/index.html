@@ -250,7 +250,7 @@
         </div>
         <table class="table" id="merchantsFullTable">
           <thead>
-            <tr><th>Merchant</th><th>Business</th><th>Status</th><th class="ralign">Fee</th><th class="ralign">Volume (30d)</th><th class="ralign">Txns</th><th class="ralign"></th></tr>
+            <tr><th>Merchant</th><th>Business</th><th>Status</th><th class="ralign">Fee</th><th>Agency</th><th class="ralign">Volume (30d)</th><th class="ralign">Txns</th><th class="ralign"></th></tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -352,21 +352,36 @@
         <button class="icon-btn" id="inviteModalClose" type="button" aria-label="Close"><span data-ico="close"></span></button>
       </div>
       <form id="inviteForm">
-        <p class="modal-lead">Generate a single-use link that lets a client create their account and access only their own data.</p>
+        <p class="modal-lead">Generate a single-use link that lets someone create their account.</p>
         <div class="modal-msg" id="inviteMsg"></div>
         <div class="field">
-          <label for="invMerchantSelect">Merchant</label>
-          <select id="invMerchantSelect"></select>
+          <label for="invAccountType">Account type</label>
+          <select id="invAccountType">
+            <option value="merchant">Merchant (client)</option>
+            <option value="agency">Agency (referrer)</option>
+          </select>
         </div>
-        <div id="newMerchantFields" style="display:none">
-          <div class="field"><label for="invNewName">New merchant name</label><input id="invNewName" placeholder="e.g. BrightPeak Co" /></div>
-          <div class="field"><label for="invNewType">Business type</label><input id="invNewType" placeholder="e.g. Nutraceuticals" /></div>
+        <div id="merchantInviteFields">
+          <div class="field">
+            <label for="invMerchantSelect">Merchant</label>
+            <select id="invMerchantSelect"></select>
+          </div>
+          <div id="newMerchantFields" style="display:none">
+            <div class="field"><label for="invNewName">New merchant name</label><input id="invNewName" placeholder="e.g. BrightPeak Co" /></div>
+            <div class="field"><label for="invNewType">Business type</label><input id="invNewType" placeholder="e.g. Nutraceuticals" /></div>
+          </div>
+          <div class="field"><label for="invFee">Processing fee (%)</label>
+            <input type="number" id="invFee" step="0.01" min="0" max="20" value="2.9" />
+            <div class="modal-hint">The percentage 3PSolutions charges this merchant. Drives their processing-fee figures.</div>
+          </div>
         </div>
-        <div class="field"><label for="invEmailInput">Client email</label><input type="email" id="invEmailInput" placeholder="owner@company.com" required /></div>
-        <div class="field"><label for="invFee">Processing fee (%)</label>
-          <input type="number" id="invFee" step="0.01" min="0" max="20" value="2.9" />
-          <div class="modal-hint">The percentage 3PSolutions charges this merchant. Drives their processing-fee figures.</div>
+        <div id="agencyInviteFields" style="display:none">
+          <div class="field"><label for="invCommission">Commission (%)</label>
+            <input type="number" id="invCommission" step="0.01" min="0" max="100" value="10" />
+            <div class="modal-hint">The agency's referral commission. Only an admin can change this later.</div>
+          </div>
         </div>
+        <div class="field"><label for="invEmailInput">Email</label><input type="email" id="invEmailInput" placeholder="owner@company.com" required /></div>
         <div class="field"><label for="invExpiry">Invite expires in</label>
           <select id="invExpiry"><option value="7">7 days</option><option value="14">14 days</option><option value="30">30 days</option></select>
         </div>

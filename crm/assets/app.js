@@ -273,7 +273,7 @@ const ACTIVE = { data: SAMPLE_DATA, transactions: TRANSACTIONS, payouts: PAYOUTS
 let currentRange = 'daily';
 
 // ---- App state & API data loading ----
-const STATE = { me: null, merchants: [], viewMerchantId: null, viewMerchant: null };
+const STATE = { me: null, merchants: [], agencies: [], viewMerchantId: null, viewMerchant: null };
 const AVATAR_PALETTE = ['#1B6EF3', '#16A34A', '#7C3AED', '#0EA5E9', '#E5A50A', '#0A2540', '#DB2777', '#0D9488'];
 const cap = (s) => (s ? String(s)[0].toUpperCase() + String(s).slice(1) : '');
 const avatarColor = (n) => AVATAR_PALETTE[(Number(n) || 0) % AVATAR_PALETTE.length];
@@ -328,7 +328,22 @@ async function viewMerchant(id) {
 async function loadMerchants() {
   const res = await fetchJSON('/api/merchants');
   STATE.merchants = res.merchants || [];
+  if (STATE.me && STATE.me.role === 'admin') {
+    try { STATE.agencies = (await fetchJSON('/api/agencies')).agencies || []; } catch (_) { STATE.agencies = []; }
+  }
   return STATE.merchants;
+}
+
+// Admin: assign (or clear) which agency a merchant belongs to.
+async function updateMerchantAgency(merchantId, agencyId) {
+  try {
+    await fetchJSON('/api/merchant/agency', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ merchant_id: merchantId, agency_id: agencyId || null }),
+    });
+    const m = STATE.merchants.find((x) => x.id === merchantId);
+    if (m) m.agency_id = agencyId ? Number(agencyId) : null;
+  } catch (err) { console.warn('[3PSolutions] agency assignment failed:', err); }
 }
 
 function setUserChrome(me) {
@@ -337,12 +352,24 @@ function setUserChrome(me) {
   const roleEl = document.getElementById('userRole');
   if (av) av.textContent = initials((me.merchant_name || me.username || 'U').replace(/@.*/, ''));
   if (nm) nm.textContent = me.username || '';
-  if (roleEl) { roleEl.textContent = me.role === 'admin' ? 'Admin' : 'Merchant'; roleEl.className = 'role-chip ' + me.role; }
+  if (roleEl) {
+    roleEl.textContent = me.role === 'admin' ? 'Admin' : (me.role === 'agency' ? 'Agency' : 'Merchant');
+    roleEl.className = 'role-chip ' + me.role;
+  }
   const sub = document.getElementById('pageSub');
   if (me.role === 'admin') {
     const nav = document.getElementById('navMerchants');
     if (nav) nav.style.display = '';
     if (sub) sub.textContent = 'Administrator · viewing all merchants';
+  } else if (me.role === 'agency') {
+    const nav = document.getElementById('navMerchants');
+    if (nav) nav.style.display = '';
+    // Agencies are read-only and don't configure payouts.
+    const pm = document.getElementById('navPayoutMethods');
+    if (pm) pm.style.display = 'none';
+    const comm = (me.commission_percent != null && me.commission_percent !== '')
+      ? ' · ' + me.commission_percent + '% commission' : '';
+    if (sub) sub.textContent = 'Agency · your referred merchants' + comm;
   } else if (sub) {
     sub.textContent = (me.merchant_name || 'Merchant') + ' · merchant portal';
   }
@@ -352,7 +379,8 @@ function setUserChrome(me) {
 function updateContextBar(merchant) {
   const bar = document.getElementById('contextBar');
   if (!bar) return;
-  if (!STATE.me || STATE.me.role !== 'admin' || !merchant) { bar.style.display = 'none'; return; }
+  const role = STATE.me && STATE.me.role;
+  if (!(role === 'admin' || role === 'agency') || !merchant) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
   document.getElementById('ctxName').textContent = merchant.name;
   document.getElementById('ctxMeta').textContent =
@@ -362,7 +390,10 @@ function updateContextBar(merchant) {
   const av = document.getElementById('ctxAvatar');
   if (av) { av.textContent = initials(merchant.name); av.style.background = avatarColor(merchant.id); }
   const cs = document.getElementById('ctxStatus');
-  if (cs && merchant.status) { cs.value = merchant.status; cs.className = 'status-select ctx-status ' + merchant.status; }
+  if (cs) {
+    if (role === 'agency') { cs.style.display = 'none'; }
+    else { cs.style.display = ''; if (merchant.status) { cs.value = merchant.status; cs.className = 'status-select ctx-status ' + merchant.status; } }
+  }
 }
 
 function enableAdminUI() {
@@ -414,20 +445,45 @@ function renderTransactionsPage(transactions) {
 
 // Admin-only merchants directory (browse all merchants, click to open one).
 function renderMerchantsPage() {
-  if (!STATE.me || STATE.me.role !== 'admin') { exitFullpage(); return; }
+  const role = STATE.me && STATE.me.role;
+  if (!(role === 'admin' || role === 'agency')) { exitFullpage(); return; }
+  const isAgency = role === 'agency';
   const merchants = STATE.merchants;
   const totalVol = merchants.reduce((s, m) => s + (m.monthVolume || 0), 0);
   const activeN = merchants.filter((m) => m.status === 'active').length;
   const stats = [
-    { label: 'Total merchants', value: fmtNum(merchants.length) },
+    { label: isAgency ? 'Your merchants' : 'Total merchants', value: fmtNum(merchants.length) },
     { label: 'Active', value: fmtNum(activeN) },
     { label: 'Combined volume (30d)', value: fmtMoney0(totalVol) },
   ];
+  if (isAgency && STATE.me.commission_percent != null && STATE.me.commission_percent !== '') {
+    stats.push({ label: 'Your commission', value: STATE.me.commission_percent + '%' });
+  }
   document.getElementById('merchantsSummary').innerHTML = stats
     .map((s) => `<div class="fp-stat"><span class="fp-stat-label">${s.label}</span><span class="fp-stat-value">${s.value}</span></div>`)
     .join('');
   document.getElementById('merchantsCount').textContent = merchants.length + ' merchants';
-  document.querySelector('#merchantsFullTable tbody').innerHTML = merchants.map((m) => `
+  const inviteBtn = document.getElementById('inviteBtn');
+  if (inviteBtn) inviteBtn.style.display = isAgency ? 'none' : '';
+  const myShort = isAgency ? (STATE.me.username || '').replace(/@.*/, '') : '';
+
+  document.querySelector('#merchantsFullTable tbody').innerHTML = merchants.map((m) => {
+    const statusCell = isAgency
+      ? `<span class="status ${m.status}">${cap(m.status)}</span>`
+      : statusSelect(m.id, m.status);
+    let agencyCell;
+    if (isAgency) {
+      agencyCell = `<td>${myShort}</td>`;
+    } else {
+      const opts = ['<option value="">— None —</option>'].concat(
+        (STATE.agencies || []).map((a) =>
+          `<option value="${a.id}" ${a.id === m.agency_id ? 'selected' : ''}>${(a.username || '').replace(/@.*/, '')}</option>`));
+      agencyCell = `<td><select class="status-select agency-select" data-id="${m.id}" aria-label="Agency">${opts.join('')}</select></td>`;
+    }
+    const actions = isAgency
+      ? `<span class="view-btn">View →</span>`
+      : `<span class="view-btn">View →</span> <button class="row-del" title="Delete merchant" aria-label="Delete merchant"><span data-ico="trash"></span></button>`;
+    return `
     <tr class="merchant-row" data-id="${m.id}">
       <td>
         <div class="cust">
@@ -436,25 +492,24 @@ function renderMerchantsPage() {
         </div>
       </td>
       <td>${m.business_type || '—'}</td>
-      <td>${statusSelect(m.id, m.status)}</td>
+      <td>${statusCell}</td>
       <td class="ralign">${m.fee_percent != null ? m.fee_percent + '%' : '—'}</td>
+      ${agencyCell}
       <td class="ralign amount">${fmtMoney0(m.monthVolume)}</td>
       <td class="ralign">${fmtNum(m.monthTxns)}</td>
-      <td class="ralign">
-        <span class="view-btn">View →</span>
-        <button class="row-del" title="Delete merchant" aria-label="Delete merchant"><span data-ico="trash"></span></button>
-      </td>
-    </tr>`).join('');
+      <td class="ralign">${actions}</td>
+    </tr>`;
+  }).join('');
+
   const tb = document.querySelector('#merchantsFullTable tbody');
   tb.querySelectorAll('[data-ico]').forEach((el) => applyIcon(el, el.getAttribute('data-ico')));
   tb.onclick = (e) => {
-    if (e.target.closest('.status-select')) return;   // don't navigate when changing status
+    if (e.target.closest('.status-select')) return;   // don't navigate when interacting with a select
     const delBtn = e.target.closest('.row-del');
     if (delBtn) {
       const tr = delBtn.closest('.merchant-row');
       const id = Number(tr.getAttribute('data-id'));
-      const m = STATE.merchants.find((x) => x.id === id);
-      openDeleteConfirm(m);
+      openDeleteConfirm(STATE.merchants.find((x) => x.id === id));
       return;
     }
     const tr = e.target.closest('.merchant-row');
@@ -463,10 +518,12 @@ function renderMerchantsPage() {
     viewMerchant(Number(tr.getAttribute('data-id'))).catch((err) => console.warn(err));
   };
   tb.onchange = (e) => {
+    const agSel = e.target.closest('.agency-select');
+    if (agSel) { updateMerchantAgency(Number(agSel.getAttribute('data-id')), agSel.value); return; }
     const sel = e.target.closest('.status-select');
     if (sel) updateMerchantStatus(Number(sel.getAttribute('data-id')), sel.value);
   };
-  loadAndRenderInvites();
+  if (!isAgency) loadAndRenderInvites();
 }
 
 // ---- Invites (admin) ----
@@ -530,6 +587,16 @@ async function loadAndRenderInvites() {
 function toggleNewMerchant() {
   const isNew = document.getElementById('invMerchantSelect').value === '__new__';
   document.getElementById('newMerchantFields').style.display = isNew ? '' : 'none';
+}
+
+// Switch the invite form between Merchant and Agency account types.
+function toggleInviteType() {
+  const t = document.getElementById('invAccountType');
+  const isAgency = t && t.value === 'agency';
+  const mf = document.getElementById('merchantInviteFields');
+  const af = document.getElementById('agencyInviteFields');
+  if (mf) mf.style.display = isAgency ? 'none' : '';
+  if (af) af.style.display = isAgency ? '' : 'none';
 }
 
 // ---- Delete merchant (admin) ----
@@ -667,6 +734,7 @@ function openInviteModal() {
   document.getElementById('inviteMsg').className = 'modal-msg';
   sel.value = STATE.merchants.length ? String(STATE.merchants[0].id) : '__new__';
   toggleNewMerchant();
+  toggleInviteType();
   const m = document.getElementById('inviteModal');
   m.classList.add('open');
   m.setAttribute('aria-hidden', 'false');
@@ -684,19 +752,20 @@ async function submitInvite(e) {
   const btn = document.getElementById('invSubmit');
   msg.className = 'modal-msg';
   const email = document.getElementById('invEmailInput').value.trim();
-  const sel = document.getElementById('invMerchantSelect').value;
-  const body = {
-    email,
-    expires_days: Number(document.getElementById('invExpiry').value),
-    fee_percent: Number(document.getElementById('invFee').value),
-    role: 'merchant',
-  };
-  if (sel === '__new__') {
-    const name = document.getElementById('invNewName').value.trim();
-    if (!name) { msg.className = 'modal-msg err'; msg.textContent = 'Enter a name for the new merchant.'; return; }
-    body.new_merchant = { name, business_type: document.getElementById('invNewType').value.trim() };
+  const type = (document.getElementById('invAccountType') || {}).value || 'merchant';
+  const body = { email, expires_days: Number(document.getElementById('invExpiry').value), role: type };
+  if (type === 'agency') {
+    body.commission_percent = Number(document.getElementById('invCommission').value);
   } else {
-    body.merchant_id = Number(sel);
+    body.fee_percent = Number(document.getElementById('invFee').value);
+    const sel = document.getElementById('invMerchantSelect').value;
+    if (sel === '__new__') {
+      const name = document.getElementById('invNewName').value.trim();
+      if (!name) { msg.className = 'modal-msg err'; msg.textContent = 'Enter a name for the new merchant.'; return; }
+      body.new_merchant = { name, business_type: document.getElementById('invNewType').value.trim() };
+    } else {
+      body.merchant_id = Number(sel);
+    }
   }
   btn.disabled = true; btn.textContent = 'Generating…';
   try {
@@ -707,7 +776,7 @@ async function submitInvite(e) {
     document.getElementById('inviteResult').style.display = '';
     document.getElementById('inviteLink').value = res.link;
     document.getElementById('inviteResultNote').textContent =
-      `For ${res.email}${res.merchant_name ? ' · ' + res.merchant_name : ''} · expires in ${res.expires_days} days · single-use.`;
+      `For ${res.email}${res.merchant_name ? ' · ' + res.merchant_name : (type === 'agency' ? ' · Agency' : '')} · expires in ${res.expires_days} days · single-use.`;
     await loadMerchants();
     renderMerchantsPage();
   } catch (err) {
@@ -722,6 +791,7 @@ async function submitInvite(e) {
   on('inviteBtn', 'click', openInviteModal);
   on('inviteModalClose', 'click', closeInviteModal);
   on('invMerchantSelect', 'change', toggleNewMerchant);
+  on('invAccountType', 'change', toggleInviteType);
   on('inviteForm', 'submit', submitInvite);
   on('inviteAnother', 'click', openInviteModal);
   on('copyLink', 'click', () => copyText(document.getElementById('inviteLink').value, document.getElementById('copyLink')));
@@ -762,7 +832,7 @@ function openFullpage(hash) {
   const cfg = FULLPAGES[hash];
   if (!cfg) return;
   // Block admin-only pages for non-admins (e.g. a merchant forcing #merchants).
-  if (cfg.adminOnly && !(STATE.me && STATE.me.role === 'admin')) {
+  if (cfg.adminOnly && !(STATE.me && (STATE.me.role === 'admin' || STATE.me.role === 'agency'))) {
     if (location.hash) history.replaceState(null, '', location.pathname + location.search);
     return;
   }
@@ -860,7 +930,7 @@ async function init() {
   setUserChrome(me);
 
   try {
-    if (me.role === 'admin') {
+    if (me.role === 'admin' || me.role === 'agency') {
       enableAdminUI();
       await loadMerchants();
       if (STATE.merchants.length) await viewMerchant(STATE.merchants[0].id);
