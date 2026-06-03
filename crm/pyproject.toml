@@ -1,0 +1,5 @@
+# Tell Vercel which file is the Python serverless entrypoint.
+# api/index.py exposes a BaseHTTPRequestHandler `handler` class (Vercel's
+# supported Python function format); all /api/* routes are dispatched to it.
+[tool.vercel]
+entrypoint = "api/index.py"
