@@ -1,3 +1,0 @@
-# The CRM app lives in crm/ and deploys as its own Vercel project
-# (Root Directory = crm). Exclude it from the marketing-site project.
-crm/
