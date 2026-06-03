@@ -1,6 +1,10 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
+  "redirects": [
+    { "source": "/crm", "destination": "https://app.use3psolutions.com", "permanent": false },
+    { "source": "/crm/:path*", "destination": "https://app.use3psolutions.com", "permanent": false }
+  ],
   "headers": [
     {
       "source": "/(.*)",
