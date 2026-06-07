@@ -32,6 +32,7 @@ backend is chosen automatically: if `DATABASE_URL` is set → Postgres, else SQL
 | `ADMIN_EMAIL` | recommended | Your admin login (e.g. `3psolutionss@gmail.com`) — seeded on first run |
 | `ADMIN_PASSWORD` | recommended | Initial admin password (change after first login) |
 | `SEED_DEMO` | optional | Set to `1` to also seed the demo merchant; omit for a clean production DB |
+| `WEBHOOK_SECRET` | for the provider webhook | Shared secret the provider sends as `X-Webhook-Secret` (see [WEBHOOK.md](WEBHOOK.md)). Generate with `python -c "import secrets;print(secrets.token_hex(24))"` |
 | `RESEND_API_KEY` | for email | API key from [resend.com](https://resend.com) (enables invite + reset emails) |
 | `EMAIL_FROM` | for email | Verified sender, e.g. `3PSolutions <noreply@yourdomain.com>` |
 | `APP_URL` | recommended with email | Your production URL (e.g. `https://yourapp.vercel.app`) so links in emails point to the right place |
