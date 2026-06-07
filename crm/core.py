@@ -39,6 +39,12 @@ PBKDF2_ROUNDS = 200_000
 SESSION_SECRET = os.environ.get("SESSION_SECRET") or "dev-insecure-3psolutions-secret-change-me"
 ON_VERCEL = bool(os.environ.get("VERCEL"))
 SECURE_COOKIES = ON_VERCEL          # HTTPS-only cookies in production
+# Shared secret the underlying provider sends with each webhook call.
+# Locally a dev default is used; in production you MUST set WEBHOOK_SECRET.
+WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET") or ("dev-webhook-secret" if not IS_PG else None)
+WEBHOOK_FIELDS = ["gross", "fee", "net", "hold", "refund_dispute", "dispute_win", "release",
+                  "payout", "rent_fee", "sent_to_merchant", "receive", "exchange_to_clients",
+                  "paid", "left_balance"]
 
 # Default admin (seeded on first run). Configure in production via env.
 DEFAULT_ADMIN = (
@@ -126,6 +132,12 @@ def init_db():
         "id %s, token TEXT UNIQUE NOT NULL, email TEXT NOT NULL, merchant_id INTEGER, "
         "role TEXT NOT NULL DEFAULT 'merchant', created_by TEXT, created_at INTEGER NOT NULL, "
         "expires_at INTEGER, used_at INTEGER, used_by TEXT)" % pk
+    )
+    # Real settlement figures pushed by the provider's webhook (per merchant + period).
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS provider_data ("
+        "merchant_id INTEGER NOT NULL, period TEXT NOT NULL, data TEXT NOT NULL, "
+        "updated_at INTEGER NOT NULL, PRIMARY KEY (merchant_id, period))"
     )
     conn.commit()
 
@@ -245,6 +257,46 @@ def all_merchants():
     rows = conn.execute("SELECT * FROM merchants ORDER BY name").fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def get_merchant_by_email(email):
+    conn = get_db()
+    row = conn.execute("SELECT * FROM merchants WHERE email = ?", ((email or "").strip().lower(),)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+# ---------------------- provider webhook data -----------------------------
+def upsert_provider_data(merchant_id, period, fields):
+    conn = get_db()
+    conn.execute("DELETE FROM provider_data WHERE merchant_id=? AND period=?", (merchant_id, period))
+    conn.execute("INSERT INTO provider_data (merchant_id, period, data, updated_at) VALUES (?,?,?,?)",
+                 (merchant_id, period, json.dumps(fields), int(time.time())))
+    conn.commit()
+    conn.close()
+
+
+def get_provider_data(merchant_id, period):
+    conn = get_db()
+    row = conn.execute("SELECT data FROM provider_data WHERE merchant_id=? AND period=?",
+                       (merchant_id, period)).fetchone()
+    conn.close()
+    if not row:
+        return None
+    try:
+        return json.loads(row["data"])
+    except (ValueError, TypeError):
+        return None
+
+
+def _provider_num(pd, key, default):
+    """Provider-pushed number for `key`, else the sample default."""
+    if pd and pd.get(key) not in (None, ""):
+        try:
+            return round(float(pd[key]), 2)
+        except (TypeError, ValueError):
+            return default
+    return default
 
 
 def merchants_for_agency(agency_user_id):
@@ -504,27 +556,34 @@ def gen_dashboard(merchant):
     for key, meta in RANGE_META.items():
         collected = FLAT[key]["collected"]
         txns = FLAT[key]["txns"]
+        # Real figures pushed by the provider webhook override the sample values
+        # (for that period, or an "all" snapshot). Mapped onto the current cards.
+        pd = get_provider_data(mid, key) or get_provider_data(mid, "all")
+        collected = _provider_num(pd, "gross", collected)
+        net_val = _provider_num(pd, "net", round(collected * net_rate, 2))
+        avail_val = _provider_num(pd, "left_balance", available)
+        pend_val = _provider_num(pd, "hold", pending)
+        payout_val = _provider_num(pd, "payout", next_payout_amt)
+        fee_val = _provider_num(pd, "fee", round(collected * fee_rate, 2))
+        refund_val = _provider_num(pd, "refund_dispute", round(collected * refund_rate, 2))
         n = len(meta["labels"])
-        bar = round(collected / n, 2)            # flat line: every point identical
+        bar = round(collected / n, 2)
         coll_series = [bar] * n
-        net_series = [round(bar * net_rate, 2)] * n
+        net_series = [round(net_val / n, 2)] * n
         data[key] = {
             "rangeNote": meta["note"], "chartUnit": meta["unit"],
             "metrics": {
                 "totalCollected": {"value": collected, "change": 0.0},
-                "nextPayout": {"amount": next_payout_amt, "when": pw_when, "date": pw_date},
-                "availableBalance": {"value": available, "change": 0.0},
-                "netRevenue": {"value": round(collected * net_rate, 2), "change": 0.0},
-                "pendingBalance": {"value": pending, "change": 0.0},
+                "nextPayout": {"amount": payout_val, "when": pw_when, "date": pw_date},
+                "availableBalance": {"value": avail_val, "change": 0.0},
+                "netRevenue": {"value": net_val, "change": 0.0},
+                "pendingBalance": {"value": pend_val, "change": 0.0},
                 "transactions": {"value": txns, "change": 0.0},
                 "avgTransaction": {"value": round(collected / txns, 2), "change": 0.0},
-                "refunds": {"value": round(collected * refund_rate, 2),
-                            "count": int(round(txns * refund_rate)), "change": 0.0},
+                "refunds": {"value": refund_val, "count": int(round(txns * refund_rate)), "change": 0.0},
             },
             "chart": {"labels": meta["labels"], "collected": coll_series, "net": net_series},
-            "breakdown": {
-                "net": round(collected * net_rate, 2), "fees": round(collected * fee_rate, 2),
-            },
+            "breakdown": {"net": net_val, "fees": fee_val},
         }
 
     # Flat transactions: six $100 completed payments.
@@ -678,6 +737,40 @@ def dispatch_api(method, path, query_string, headers, body_bytes):
             conn.commit()
             conn.close()
             return J({"ok": True, "username": email}, set_cookie=make_session_cookie(email))
+
+        # ---- Provider webhook: push real settlement data for a merchant ----
+        if path == "/api/webhook":
+            if not WEBHOOK_SECRET:
+                return J({"ok": False, "error": "Webhook not configured (set WEBHOOK_SECRET)."}, 503)
+            provided = headers.get("X-Webhook-Secret")
+            if not provided:
+                auth = headers.get("Authorization") or ""
+                if auth.lower().startswith("bearer "):
+                    provided = auth[7:].strip()
+            if not provided or not hmac.compare_digest(provided, WEBHOOK_SECRET):
+                return J({"ok": False, "error": "Unauthorized"}, 401)
+            data = body_json()
+            if data is None:
+                return J({"ok": False, "error": "Invalid JSON body."}, 400)
+            merchant = None
+            if data.get("merchant_id") not in (None, ""):
+                try:
+                    merchant = get_merchant(int(data["merchant_id"]))
+                except (TypeError, ValueError):
+                    return J({"ok": False, "error": "merchant_id must be an integer."}, 400)
+            elif data.get("merchant_email"):
+                merchant = get_merchant_by_email(data["merchant_email"])
+            if not merchant:
+                return J({"ok": False, "error": "Unknown merchant (send merchant_id or merchant_email)."}, 404)
+            period = (data.get("period") or "all").lower()
+            if period not in ("daily", "weekly", "monthly", "all"):
+                return J({"ok": False, "error": "period must be daily, weekly, monthly, or all."}, 400)
+            fields = {k: data[k] for k in WEBHOOK_FIELDS if k in data}
+            if not fields:
+                return J({"ok": False, "error": "No settlement fields provided."}, 400)
+            upsert_provider_data(merchant["id"], period, fields)
+            return J({"ok": True, "merchant_id": merchant["id"], "period": period,
+                      "updated": sorted(fields.keys())})
 
         row = get_user_row(user)
 
