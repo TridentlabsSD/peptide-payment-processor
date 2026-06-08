@@ -216,6 +216,12 @@ function renderBreakdown(d) {
 }
 
 // ---- Tables ----
+// Escape user-controlled values before inserting into innerHTML (XSS prevention).
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 function initials(name) {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -227,12 +233,12 @@ function transactionRow(t) {
     <tr>
       <td>
         <div class="cust">
-          <span class="cust-avatar" style="background:${t.color}">${initials(t.name)}</span>
-          <span><span class="cust-name">${t.name}</span><br><span class="cust-id">${t.id}</span></span>
+          <span class="cust-avatar" style="background:${esc(t.color)}">${initials(t.name)}</span>
+          <span><span class="cust-name">${esc(t.name)}</span><br><span class="cust-id">${esc(t.id)}</span></span>
         </div>
       </td>
-      <td>${t.method}</td>
-      <td><span class="status ${t.status}">${t.status[0].toUpperCase() + t.status.slice(1)}</span></td>
+      <td>${esc(t.method)}</td>
+      <td><span class="status ${esc(t.status)}">${esc(t.status[0].toUpperCase() + t.status.slice(1))}</span></td>
       <td class="ralign amount ${t.amount < 0 ? 'neg' : ''}">${t.amount < 0 ? '-' : ''}${fmtMoney(Math.abs(t.amount))}</td>
     </tr>`;
 }
@@ -249,8 +255,8 @@ function payoutDestCell(p) {
     <div class="dest">
       <span class="dest-ico ${isCrypto ? 'crypto' : 'ach'}"><span class="i" data-ico="${isCrypto ? 'crypto' : 'bank'}"></span></span>
       <span class="dest-text">
-        <span class="dest-type">${type}</span>
-        <span class="dest-detail ${isCrypto ? 'mono' : ''}" title="${isCrypto ? String(p.dest || '') : ''}">${detail}</span>
+        <span class="dest-type">${esc(type)}</span>
+        <span class="dest-detail ${isCrypto ? 'mono' : ''}" title="${isCrypto ? esc(p.dest) : ''}">${esc(detail)}</span>
       </span>
     </div>`;
 }
@@ -260,7 +266,7 @@ function renderPayouts(payouts) {
     <tr>
       <td>${p.date}</td>
       <td>${payoutDestCell(p)}</td>
-      <td><span class="status ${p.status}">${p.status[0].toUpperCase() + p.status.slice(1)}</span></td>
+      <td><span class="status ${esc(p.status)}">${esc(p.status[0].toUpperCase() + p.status.slice(1))}</span></td>
       <td class="ralign amount">${fmtMoney0(p.amount)}</td>
     </tr>`).join('');
   const tbody = document.querySelector('#payoutTable tbody');
@@ -420,7 +426,7 @@ function renderPayoutsPage(payouts) {
     <tr>
       <td>${p.date}</td>
       <td>${payoutDestCell(p)}</td>
-      <td><span class="status ${p.status}">${p.status[0].toUpperCase() + p.status.slice(1)}</span></td>
+      <td><span class="status ${esc(p.status)}">${esc(p.status[0].toUpperCase() + p.status.slice(1))}</span></td>
       <td class="ralign amount">${fmtMoney0(p.amount)}</td>
     </tr>`).join('');
   const tb = document.querySelector('#payoutsFullTable tbody');
@@ -477,7 +483,7 @@ function renderMerchantsPage() {
     } else {
       const opts = ['<option value="">— None —</option>'].concat(
         (STATE.agencies || []).map((a) =>
-          `<option value="${a.id}" ${a.id === m.agency_id ? 'selected' : ''}>${(a.username || '').replace(/@.*/, '')}</option>`));
+          `<option value="${a.id}" ${a.id === m.agency_id ? 'selected' : ''}>${esc((a.username || '').replace(/@.*/, ''))}</option>`));
       agencyCell = `<td><select class="status-select agency-select" data-id="${m.id}" aria-label="Agency">${opts.join('')}</select></td>`;
     }
     const actions = isAgency
@@ -488,10 +494,10 @@ function renderMerchantsPage() {
       <td>
         <div class="cust">
           <span class="cust-avatar" style="background:${avatarColor(m.id)}">${initials(m.name)}</span>
-          <span><span class="cust-name">${m.name}</span><br><span class="cust-id">${m.email || ''}</span></span>
+          <span><span class="cust-name">${esc(m.name)}</span><br><span class="cust-id">${esc(m.email || '')}</span></span>
         </div>
       </td>
-      <td>${m.business_type || '—'}</td>
+      <td>${esc(m.business_type || '—')}</td>
       <td>${statusCell}</td>
       <td class="ralign">${m.fee_percent != null ? m.fee_percent + '%' : '—'}</td>
       ${agencyCell}
@@ -557,9 +563,9 @@ async function loadAndRenderInvites() {
   document.getElementById('invitesCount').textContent = pending.length + ' pending';
   const tb = document.querySelector('#invitesTable tbody');
   tb.innerHTML = pending.map((i) => `
-    <tr data-token="${i.token}">
-      <td>${i.email}</td>
-      <td>${i.merchant_name || (i.role === 'admin' ? 'Administrator' : '—')}</td>
+    <tr data-token="${esc(i.token)}">
+      <td>${esc(i.email)}</td>
+      <td>${esc(i.merchant_name || (i.role === 'admin' ? 'Administrator' : '—'))}</td>
       <td><span class="status pending">Pending</span></td>
       <td>${fmtInviteDate(i.expires_at)}</td>
       <td class="ralign">
@@ -726,7 +732,7 @@ async function savePayoutMethods() {
 
 function openInviteModal() {
   const sel = document.getElementById('invMerchantSelect');
-  sel.innerHTML = STATE.merchants.map((m) => `<option value="${m.id}">${m.name}</option>`).join('')
+  sel.innerHTML = STATE.merchants.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('')
     + '<option value="__new__">➕ New merchant…</option>';
   document.getElementById('inviteForm').reset();
   document.getElementById('inviteForm').style.display = '';

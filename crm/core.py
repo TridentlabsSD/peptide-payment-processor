@@ -36,8 +36,22 @@ IS_PG = bool(DATABASE_URL)
 
 SESSION_TTL = 60 * 60 * 8          # 8 hours
 PBKDF2_ROUNDS = 200_000
-SESSION_SECRET = os.environ.get("SESSION_SECRET") or "dev-insecure-3psolutions-secret-change-me"
 ON_VERCEL = bool(os.environ.get("VERCEL"))
+# Cookie-signing secret. NEVER fall back to a public default in production: if
+# SESSION_SECRET is unset on the server, use a random per-process value. That
+# makes sessions non-forgeable (an attacker can't reuse a known default) — at
+# the cost of sessions not surviving restarts/instances until you set it, which
+# is a loud signal to configure SESSION_SECRET.
+SESSION_SECRET = os.environ.get("SESSION_SECRET")
+if not SESSION_SECRET:
+    if ON_VERCEL or IS_PG:
+        import secrets as _secrets
+        SESSION_SECRET = _secrets.token_hex(32)
+        print("WARNING: SESSION_SECRET is not set — using a random per-process secret. "
+              "Set SESSION_SECRET in the environment for stable sessions.")
+    else:
+        SESSION_SECRET = "dev-insecure-3psolutions-secret-change-me"  # local dev only
+SECURE_COOKIES = ON_VERCEL          # HTTPS-only cookies in production
 SECURE_COOKIES = ON_VERCEL          # HTTPS-only cookies in production
 # Shared secret the underlying provider sends with each webhook call.
 # Locally a dev default is used; in production you MUST set WEBHOOK_SECRET.
@@ -139,6 +153,11 @@ def init_db():
         "merchant_id INTEGER NOT NULL, period TEXT NOT NULL, data TEXT NOT NULL, "
         "updated_at INTEGER NOT NULL, PRIMARY KEY (merchant_id, period))"
     )
+    # Login throttling (brute-force protection), shared across serverless instances.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS login_throttle ("
+        "username TEXT PRIMARY KEY, fails INTEGER NOT NULL DEFAULT 0, locked_until INTEGER NOT NULL DEFAULT 0)"
+    )
     conn.commit()
 
     # SQLite-only migrations for databases created by older versions.
@@ -165,6 +184,16 @@ def init_db():
             conn.execute("ALTER TABLE users ADD COLUMN commission_percent REAL")
         if "commission_percent" not in _columns(conn, "invites"):
             conn.execute("ALTER TABLE invites ADD COLUMN commission_percent REAL")
+    conn.commit()
+
+    # Security migration: never retain full bank account numbers — reduce any
+    # previously-stored value to its last 4 digits (idempotent).
+    rows = conn.execute(
+        "SELECT id, ach_account FROM merchants WHERE ach_account IS NOT NULL").fetchall()
+    for r in rows:
+        acct = str(dict(r)["ach_account"] or "")
+        if len(acct) > 4:
+            conn.execute("UPDATE merchants SET ach_account=? WHERE id=?", (acct[-4:], dict(r)["id"]))
     conn.commit()
 
     # Ensure an admin account exists.
@@ -236,6 +265,49 @@ def get_user_row(username):
     row = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
     conn.close()
     return dict(row) if row else None
+
+
+# ---------------------- login throttling (brute-force) --------------------
+LOGIN_MAX_FAILS = 8        # consecutive failures before lockout
+LOGIN_LOCK_SECS = 900      # 15-minute lockout
+
+
+def login_locked_for(username):
+    """Seconds remaining on a lockout for this username, else 0."""
+    if not username:
+        return 0
+    conn = get_db()
+    row = conn.execute("SELECT locked_until FROM login_throttle WHERE username=?",
+                       (username.strip().lower(),)).fetchone()
+    conn.close()
+    if not row:
+        return 0
+    remaining = int(dict(row)["locked_until"]) - int(time.time())
+    return remaining if remaining > 0 else 0
+
+
+def record_login_failure(username):
+    username = (username or "").strip().lower()
+    if not username:
+        return
+    conn = get_db()
+    row = conn.execute("SELECT fails FROM login_throttle WHERE username=?", (username,)).fetchone()
+    fails = (int(dict(row)["fails"]) if row else 0) + 1
+    locked_until = int(time.time()) + LOGIN_LOCK_SECS if fails >= LOGIN_MAX_FAILS else 0
+    if fails >= LOGIN_MAX_FAILS:
+        fails = 0  # reset counter once locked
+    conn.execute("DELETE FROM login_throttle WHERE username=?", (username,))
+    conn.execute("INSERT INTO login_throttle (username, fails, locked_until) VALUES (?,?,?)",
+                 (username, fails, locked_until))
+    conn.commit()
+    conn.close()
+
+
+def clear_login_failures(username):
+    conn = get_db()
+    conn.execute("DELETE FROM login_throttle WHERE username=?", ((username or "").strip().lower(),))
+    conn.commit()
+    conn.close()
 
 
 def get_user_by_id(uid):
@@ -673,9 +745,15 @@ def dispatch_api(method, path, query_string, headers, body_bytes):
     if method == "POST":
         if path == "/api/login":
             data = body_json() or {}
-            u = verify_user(data.get("username", ""), data.get("password", ""))
+            uname = data.get("username", "")
+            locked = login_locked_for(uname)
+            if locked:
+                return J({"ok": False, "error": "Too many attempts. Try again in %d minutes." % ((locked + 59) // 60)}, 429)
+            u = verify_user(uname, data.get("password", ""))
             if not u:
+                record_login_failure(uname)
                 return J({"ok": False, "error": "Invalid email or password."}, 401)
+            clear_login_failures(uname)
             return J({"ok": True, "username": u}, set_cookie=make_session_cookie(u))
 
         if path == "/api/logout":
@@ -797,14 +875,17 @@ def dispatch_api(method, path, query_string, headers, body_bytes):
             ach_bank = ach_account = ach_routing = usdt_addr = None
             if ach_on:
                 ach_bank = (ach.get("bank") or "").strip()
-                ach_account = re.sub(r"\D", "", str(ach.get("account") or ""))
+                ach_account_full = re.sub(r"\D", "", str(ach.get("account") or ""))
                 ach_routing = re.sub(r"\D", "", str(ach.get("routing") or ""))
                 if not ach_bank:
                     return J({"ok": False, "error": "Bank name is required."}, 400)
-                if len(ach_account) < 4:
+                if len(ach_account_full) < 4:
                     return J({"ok": False, "error": "Enter a valid bank account number."}, 400)
                 if len(ach_routing) != 9:
                     return J({"ok": False, "error": "Routing number must be 9 digits."}, 400)
+                # Data minimization: persist only the last 4 of the account number.
+                # The dashboard only ever displays "····last4"; the full PAN is never stored.
+                ach_account = ach_account_full[-4:]
             if usdt_on:
                 usdt_addr = (usdt.get("address") or "").strip()
                 if not re.match(r"^0x[0-9a-fA-F]{40}$", usdt_addr):
@@ -981,7 +1062,8 @@ def dispatch_api(method, path, query_string, headers, body_bytes):
     # ===================== GET =====================
     if method == "GET":
         if path == "/api/health":
-            return J({"ok": True, "db": "postgres" if IS_PG else "sqlite", "email": email_configured()})
+            # Liveness only — no infrastructure details disclosed to unauthenticated callers.
+            return J({"ok": True})
 
         if path == "/api/reset-info":
             email = verify_reset_token(qs.get("token", [None])[0])
